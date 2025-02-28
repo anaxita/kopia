@@ -10,13 +10,16 @@ Use 'kopia help' to see more details.
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/alecthomas/kingpin/v2"
+	"golang.org/x/sys/windows/svc"
 
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/logfile"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/winservice"
 )
 
 const usageTemplate = `{{define "FormatCommand" -}}
@@ -64,15 +67,20 @@ Commands (use --help-full to list all commands):
 `
 
 func main() {
-	app := cli.NewApp()
-	kp := kingpin.New("kopia", "Kopia - Fast And Secure Open-Source Backup").Author("http://kopia.github.io/")
+	err := svc.Run("kopia", winservice.NewService(func(ctx context.Context) {
+		app := cli.NewApp(ctx)
+		kp := kingpin.New("kopia", "Kopia - Fast And Secure Open-Source Backup").Author("http://kopia.github.io/")
 
-	kp.Version(repo.BuildVersion + " build: " + repo.BuildInfo + " from: " + repo.BuildGitHubRepo)
-	logfile.Attach(app, kp)
-	kp.ErrorWriter(os.Stderr)
-	kp.UsageWriter(os.Stdout)
-	kp.UsageTemplate(usageTemplate)
+		kp.Version(repo.BuildVersion + " build: " + repo.BuildInfo + " from: " + repo.BuildGitHubRepo)
+		logfile.Attach(app, kp)
+		kp.ErrorWriter(os.Stderr)
+		kp.UsageWriter(os.Stdout)
+		kp.UsageTemplate(usageTemplate)
 
-	app.Attach(kp)
-	kingpin.MustParse(kp.Parse(os.Args[1:]))
+		app.Attach(kp)
+		kingpin.MustParse(kp.Parse(os.Args[1:]))
+	}))
+	if err != nil {
+		_, _ = os.Stderr.WriteString(err.Error())
+	}
 }

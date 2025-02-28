@@ -30,7 +30,7 @@ type CLIInProcRunner struct {
 func (e *CLIInProcRunner) Start(t *testing.T, ctx context.Context, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, interrupt func(os.Signal)) {
 	t.Helper()
 
-	a := cli.NewApp()
+	a := cli.NewApp(ctx)
 	a.AdvancedCommands = "enabled"
 
 	envPrefix := fmt.Sprintf("T%v_", atomic.AddInt32(envPrefixCounter, 1))

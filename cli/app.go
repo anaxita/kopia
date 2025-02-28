@@ -325,7 +325,7 @@ type commandParent interface {
 }
 
 // NewApp creates a new instance of App.
-func NewApp() *App {
+func NewApp(ctx context.Context) *App {
 	return &App{
 		progress: &cliProgress{},
 		cliStorageProviders: []StorageProvider{
@@ -354,7 +354,7 @@ func NewApp() *App {
 		stdoutWriter: colorable.NewColorableStdout(),
 		stderrWriter: colorable.NewColorableStderr(),
 		stdinReader:  os.Stdin,
-		rootctx:      context.Background(),
+		rootctx:      ctx,
 	}
 }
 

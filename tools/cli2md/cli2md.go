@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -323,7 +324,7 @@ func main() {
 	_ = os.RemoveAll(filepath.Join(*baseDir, advancedSection))
 
 	kingpinApp := kingpin.New("kopia", "Kopia - Fast And Secure Open-Source Backup").Author("http://kopia.github.io/")
-	cli.NewApp().Attach(kingpinApp)
+	cli.NewApp(context.Background()).Attach(kingpinApp)
 
 	app := kingpinApp.Model()
 
