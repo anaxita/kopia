@@ -24,9 +24,9 @@ type emailProvider struct {
 func (p *emailProvider) Send(_ context.Context, msg *sender.Message) error {
 	var auth smtp.Auth
 
-	if p.opt.SMTPUsername != "" {
-		auth = smtp.PlainAuth(p.opt.SMTPIdentity, p.opt.SMTPUsername, p.opt.SMTPPassword, p.opt.SMTPServer)
-	}
+	// if p.opt.SMTPUsername != "" {
+	// 	auth = smtp.PlainAuth(p.opt.SMTPIdentity, p.opt.SMTPUsername, p.opt.SMTPPassword, p.opt.SMTPServer)
+	// }
 
 	var msgPayload []byte
 
