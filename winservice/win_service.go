@@ -1,3 +1,5 @@
+//go:build windows
+
 package winservice
 
 import (
@@ -9,13 +11,15 @@ import (
 )
 
 type Service struct {
-	fn func(ctx context.Context)
+	fn func(ctx context.Context) error
 }
 
-func NewService(fn func(ctx context.Context)) *Service {
-	return &Service{
+func NewService(name string, fn func(ctx context.Context) error) error {
+	s := &Service{
 		fn: fn,
 	}
+
+	return svc.Run(name, s)
 }
 
 func (m *Service) Execute(args []string, r <-chan svc.ChangeRequest, status chan<- svc.Status) (bool, uint32) {
@@ -48,7 +52,10 @@ func (m *Service) Execute(args []string, r <-chan svc.ChangeRequest, status chan
 		}
 	}()
 
-	m.fn(ctx)
+	err := m.fn(ctx)
+	if err != nil {
+		slog.Error("run fn", "error", err)
+	}
 
 	status <- svc.Status{State: svc.StopPending}
 	status <- svc.Status{State: svc.Stopped}

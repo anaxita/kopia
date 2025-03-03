@@ -67,7 +67,7 @@ Commands (use --help-full to list all commands):
 `
 
 func main() {
-	err := svc.Run("kopia", winservice.NewService(func(ctx context.Context) {
+	err := winservice.NewService("kopia", func(ctx context.Context) {
 		app := cli.NewApp(ctx)
 		kp := kingpin.New("kopia", "Kopia - Fast And Secure Open-Source Backup").Author("http://kopia.github.io/")
 
@@ -79,7 +79,7 @@ func main() {
 
 		app.Attach(kp)
 		kingpin.MustParse(kp.Parse(os.Args[1:]))
-	}))
+	})
 	if err != nil {
 		_, _ = os.Stderr.WriteString(err.Error())
 	}
