@@ -14,8 +14,6 @@ import (
 	"os"
 
 	"github.com/alecthomas/kingpin/v2"
-	"golang.org/x/sys/windows/svc"
-
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/logfile"
 	"github.com/kopia/kopia/repo"
@@ -67,9 +65,10 @@ Commands (use --help-full to list all commands):
 `
 
 func main() {
-	err := winservice.NewService("kopia", func(ctx context.Context) {
+	kp := kingpin.New("kopia", "Kopia - Fast And Secure Open-Source Backup").Author("http://kopia.github.io/")
+
+	err := winservice.NewService("kopia", func(ctx context.Context) error {
 		app := cli.NewApp(ctx)
-		kp := kingpin.New("kopia", "Kopia - Fast And Secure Open-Source Backup").Author("http://kopia.github.io/")
 
 		kp.Version(repo.BuildVersion + " build: " + repo.BuildInfo + " from: " + repo.BuildGitHubRepo)
 		logfile.Attach(app, kp)
@@ -79,8 +78,10 @@ func main() {
 
 		app.Attach(kp)
 		kingpin.MustParse(kp.Parse(os.Args[1:]))
+		<-ctx.Done()
+		return nil
 	})
 	if err != nil {
-		_, _ = os.Stderr.WriteString(err.Error())
+		kp.Errorf("run app: %v", err)
 	}
 }

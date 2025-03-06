@@ -33,6 +33,7 @@ func (c *App) onTerminate(f func()) {
 			}
 
 		case <-s:
+		case <-c.rootctx.Done():
 		}
 		f()
 	}()
