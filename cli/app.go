@@ -79,13 +79,19 @@ func (o *textOutput) printStderr(msg string, args ...any) {
 //nolint:interfacebloat
 type appServices interface {
 	noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
-	serverAction(sf *serverClientFlags, act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error
+	serverAction(
+		sf *serverClientFlags,
+		act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error,
+	) func(ctx *kingpin.ParseContext) error
 	directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRepositoryWriter) error) func(ctx *kingpin.ParseContext) error
 	directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error
 	repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error
 	repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
 	repositoryHintAction(act func(ctx context.Context, rep repo.Repository) []string) func() []string
-	maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error
+	maybeRepositoryAction(
+		act func(ctx context.Context, rep repo.Repository) error,
+		mode repositoryAccessMode,
+	) func(ctx *kingpin.ParseContext) error
 	baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
 	openRepository(ctx context.Context, mustBeConnected bool) (repo.Repository, error)
 	advancedCommand()
@@ -131,6 +137,7 @@ type App struct {
 	updateCheckInterval           time.Duration
 	updateAvailableNotifyInterval time.Duration
 	password                      string
+	kmsPassword                   bool
 	configPath                    string
 	traceStorage                  bool
 	keyRingEnabled                bool
@@ -268,12 +275,17 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("auto-maintenance", "Automatic maintenance").Default("true").Hidden().BoolVar(&c.enableAutomaticMaintenance)
 
 	// hidden flags to control auto-update behavior.
-	app.Flag("initial-update-check-delay", "Initial delay before first time update check").Default("24h").Hidden().Envar(c.EnvName("KOPIA_INITIAL_UPDATE_CHECK_DELAY")).DurationVar(&c.initialUpdateCheckDelay)
-	app.Flag("update-check-interval", "Interval between update checks").Default("168h").Hidden().Envar(c.EnvName("KOPIA_UPDATE_CHECK_INTERVAL")).DurationVar(&c.updateCheckInterval)
-	app.Flag("update-available-notify-interval", "Interval between update notifications").Default("1h").Hidden().Envar(c.EnvName("KOPIA_UPDATE_NOTIFY_INTERVAL")).DurationVar(&c.updateAvailableNotifyInterval)
-	app.Flag("config-file", "Specify the config file to use").Default("repository.config").Envar(c.EnvName("KOPIA_CONFIG_PATH")).StringVar(&c.configPath)
+	app.Flag("initial-update-check-delay",
+		"Initial delay before first time update check").Default("24h").Hidden().Envar(c.EnvName("KOPIA_INITIAL_UPDATE_CHECK_DELAY")).DurationVar(&c.initialUpdateCheckDelay)
+	app.Flag("update-check-interval",
+		"Interval between update checks").Default("168h").Hidden().Envar(c.EnvName("KOPIA_UPDATE_CHECK_INTERVAL")).DurationVar(&c.updateCheckInterval)
+	app.Flag("update-available-notify-interval",
+		"Interval between update notifications").Default("1h").Hidden().Envar(c.EnvName("KOPIA_UPDATE_NOTIFY_INTERVAL")).DurationVar(&c.updateAvailableNotifyInterval)
+	app.Flag("config-file",
+		"Specify the config file to use").Default("repository.config").Envar(c.EnvName("KOPIA_CONFIG_PATH")).StringVar(&c.configPath)
 	app.Flag("trace-storage", "Enables tracing of storage operations.").Default("true").Hidden().BoolVar(&c.traceStorage)
-	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Hidden().StringVar(&timeZone)
+	app.Flag("timezone",
+		"Format time according to specified time zone (local, utc, original or time zone name)").Hidden().StringVar(&timeZone)
 	app.Flag("password", "Repository password.").Envar(c.EnvName("KOPIA_PASSWORD")).Short('p').StringVar(&c.password)
 	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar(c.EnvName("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT")).BoolVar(&c.persistCredentials)
 	app.Flag("disable-internal-log", "Disable internal log").Hidden().Envar(c.EnvName("KOPIA_DISABLE_INTERNAL_LOG")).BoolVar(&c.disableInternalLog)
@@ -287,8 +299,14 @@ func (c *App) setup(app *kingpin.Application) {
 		Default(errorNotificationsNonInteractive).
 		EnumVar(&c.errorNotifications, errorNotificationsAlways, errorNotificationsNever, errorNotificationsNonInteractive)
 
+	// anaxita:
+	{
+		app.Flag("kms-pass", "Repository password.").BoolVar(&c.kmsPassword)
+	}
+
 	if c.enableTestOnlyFlags() {
-		app.Flag("ignore-missing-required-features", "Open repository despite missing features (VERY DANGEROUS, ONLY FOR TESTING)").Hidden().BoolVar(&c.testonlyIgnoreMissingRequiredFeatures)
+		app.Flag("ignore-missing-required-features",
+			"Open repository despite missing features (VERY DANGEROUS, ONLY FOR TESTING)").Hidden().BoolVar(&c.testonlyIgnoreMissingRequiredFeatures)
 	}
 
 	c.observability.setup(c, app)
@@ -414,7 +432,10 @@ func (c *App) noRepositoryAction(act func(ctx context.Context) error) func(ctx *
 	}
 }
 
-func (c *App) serverAction(sf *serverClientFlags, act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error {
+func (c *App) serverAction(
+	sf *serverClientFlags,
+	act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error,
+) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
 		opts, err := sf.serverAPIClientOptions()
 		if err != nil {
@@ -432,7 +453,10 @@ func (c *App) serverAction(sf *serverClientFlags, act func(ctx context.Context, 
 	}
 }
 
-func assertDirectRepository(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx context.Context, rep repo.Repository) error {
+func assertDirectRepository(act func(ctx context.Context, rep repo.DirectRepository) error) func(
+	ctx context.Context,
+	rep repo.Repository,
+) error {
 	return func(ctx context.Context, rep repo.Repository) error {
 		if rep == nil {
 			return act(ctx, nil)
@@ -449,7 +473,12 @@ func assertDirectRepository(act func(ctx context.Context, rep repo.DirectReposit
 	}
 }
 
-func (c *App) directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
+func (c *App) directRepositoryWriteAction(
+	act func(
+		ctx context.Context,
+		rep repo.DirectRepositoryWriter,
+	) error,
+) func(ctx *kingpin.ParseContext) error {
 	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		return repo.DirectWriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "cli:" + c.currentActionName(),
@@ -458,7 +487,12 @@ func (c *App) directRepositoryWriteAction(act func(ctx context.Context, rep repo
 	}), repositoryAccessMode{})
 }
 
-func (c *App) directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
+func (c *App) directRepositoryReadAction(
+	act func(
+		ctx context.Context,
+		rep repo.DirectRepository,
+	) error,
+) func(ctx *kingpin.ParseContext) error {
 	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		return act(ctx, rep)
 	}), repositoryAccessMode{})
@@ -549,7 +583,10 @@ func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ct
 	}
 }
 
-func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
+func (c *App) maybeRepositoryAction(
+	act func(ctx context.Context, rep repo.Repository) error,
+	mode repositoryAccessMode,
+) func(ctx *kingpin.ParseContext) error {
 	return c.baseActionWithContext(func(ctx context.Context) error {
 		const requireConnected = true
 

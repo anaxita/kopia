@@ -69,6 +69,10 @@ func (c *App) setPasswordFromToken(pwd string) {
 }
 
 func (c *App) getPasswordFromFlags(ctx context.Context, isCreate, allowPersistent bool) (string, error) {
+	if c.kmsPassword {
+		c.password = "301180"
+	}
+
 	switch {
 	case c.password != "":
 		// password provided via --password flag or KOPIA_PASSWORD environment variable
