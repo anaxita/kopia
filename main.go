@@ -11,6 +11,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/alecthomas/kingpin/v2"
@@ -18,6 +19,7 @@ import (
 	"github.com/kopia/kopia/internal/logfile"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/winservice"
+	"golang.org/x/sys/windows/svc"
 )
 
 const usageTemplate = `{{define "FormatCommand" -}}
@@ -67,21 +69,50 @@ Commands (use --help-full to list all commands):
 func main() {
 	kp := kingpin.New("kopia", "Kopia - Fast And Secure Open-Source Backup").Author("http://kopia.github.io/")
 
-	err := winservice.NewService("kopia", func(ctx context.Context) error {
-		app := cli.NewApp(ctx)
-
-		kp.Version(repo.BuildVersion + " build: " + repo.BuildInfo + " from: " + repo.BuildGitHubRepo)
-		logfile.Attach(app, kp)
-		kp.ErrorWriter(os.Stderr)
-		kp.UsageWriter(os.Stdout)
-		kp.UsageTemplate(usageTemplate)
-
-		app.Attach(kp)
-		kingpin.MustParse(kp.Parse(os.Args[1:]))
-		<-ctx.Done()
-		return nil
-	})
+	isService, err := svc.IsWindowsService()
 	if err != nil {
-		kp.Errorf("run app: %v", err)
+		printToFile("isWindowsService: %v", err)
+		os.Exit(3)
+	}
+
+	printToFile("isService: %v", isService)
+
+	if isService {
+		err := winservice.NewService("kopia", func(ctx context.Context) error {
+			runApp(ctx, kp)
+			<-ctx.Done()
+			return nil
+		})
+		if err != nil {
+			kp.Errorf("run app: %v", err)
+		}
+	} else {
+		runApp(context.Background(), kp)
+	}
+}
+
+func runApp(ctx context.Context, kp *kingpin.Application) {
+	app := cli.NewApp(ctx)
+
+	kp.Version(repo.BuildVersion + " build: " + repo.BuildInfo + " from: " + repo.BuildGitHubRepo)
+	logfile.Attach(app, kp)
+	kp.ErrorWriter(os.Stderr)
+	kp.UsageWriter(os.Stdout)
+	kp.UsageTemplate(usageTemplate)
+
+	app.Attach(kp)
+	kingpin.MustParse(kp.Parse(os.Args[1:]))
+}
+
+func printToFile(msg string, args ...any) {
+	f, err := os.OpenFile(`C:\Users\Gcomp\GolandProjects\kopia\anaxita.log`, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(fmt.Sprintf(msg, args...))
+	if err != nil {
+		panic(err)
 	}
 }

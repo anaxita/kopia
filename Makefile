@@ -525,3 +525,6 @@ check-prettier: $(npm)
 
 prettier: $(npm)
 	make -C app prettier
+
+kms:
+	go build -o kopia.exe -ldflags="-s -w" .
