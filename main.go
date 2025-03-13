@@ -71,11 +71,11 @@ func main() {
 
 	isService, err := svc.IsWindowsService()
 	if err != nil {
-		printToFile("isWindowsService: %v", err)
+		//printToFile("isWindowsService: %v", err)
 		os.Exit(3)
 	}
 
-	printToFile("isService: %v", isService)
+	//printToFile("isService: %v", isService)
 
 	if isService {
 		err := winservice.NewService("kopia", func(ctx context.Context) error {
